@@ -47,6 +47,15 @@ export class JavaScriptLanguageGenerator implements LanguageGenerator {
     formatter.newLine();
     formatter.add('// ' + actionTitle(action));
 
+    // Canvas actions
+    if (action.name === 'canvasClick') {
+      formatter.add(`await click(${pageAlias}, { x: ${action.position?.x}, y: ${action.position?.y} })`)
+      return formatter.format();
+    } else if (action.name === 'canvasDrag') {
+      formatter.add(`await drag(${pageAlias}, { x: ${action.position?.at(0)?.x}, y: ${action.position?.at(0)?.y} }, { x: ${action.position?.at(1)?.x}, y: ${action.position?.at(1)?.y} })`);
+      return formatter.format();
+    }
+
     if (action.name === 'openPage') {
       formatter.add(`const ${pageAlias} = await context.newPage();`);
       if (action.url && action.url !== 'about:blank' && action.url !== 'chrome://newtab/')

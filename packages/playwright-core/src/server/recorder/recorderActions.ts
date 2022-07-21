@@ -17,6 +17,8 @@
 import type { Point } from '../../common/types';
 
 export type ActionName =
+  'canvasClick' |
+  'canvasDrag' |
   'check' |
   'click' |
   'closePage' |
@@ -32,6 +34,21 @@ export type ActionBase = {
   name: ActionName,
   signals: Signal[],
 };
+
+/**
+ * elvis: canvas 内的点击事件
+ */
+ export type CanvasClickAction = ActionBase & {
+  name: 'canvasClick'
+  position?: Point
+}
+/**
+ * elvis: canvas 内的拖拽事件
+ */
+export type CanvasDragAction = ActionBase & {
+  name: 'canvasDrag'
+  position?: Point[]
+}
 
 export type ClickAction = ActionBase & {
   name: 'click',
@@ -91,7 +108,7 @@ export type SetInputFilesAction = ActionBase & {
   files: string[],
 };
 
-export type Action = ClickAction | CheckAction | ClosesPageAction | OpenPageAction | UncheckAction | FillAction | NavigateAction | PressAction | SelectAction | SetInputFilesAction;
+export type Action = ClickAction | CheckAction | ClosesPageAction | OpenPageAction | UncheckAction | FillAction | NavigateAction | PressAction | SelectAction | SetInputFilesAction | CanvasClickAction | CanvasDragAction;
 
 // Signals.
 
@@ -160,5 +177,9 @@ export function actionTitle(action: Action): string {
       return `Press ${action.key}` + (action.modifiers ? ' with modifiers' : '');
     case 'select':
       return `Select ${action.options.join(', ')}`;
+    case 'canvasClick':
+      return `click on canvas`;
+    case 'canvasDrag':
+      return `drag on canvas`;
   }
 }

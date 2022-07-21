@@ -20,6 +20,7 @@ import { generateSelector, querySelector } from '../injected/selectorGenerator';
 import type { Point } from '../../common/types';
 import type { UIState } from '../recorder/recorderTypes';
 import { Highlight } from '../injected/highlight';
+import { copy } from './f2Util';
 
 
 declare module globalThis {
@@ -43,6 +44,9 @@ class Recorder {
   private _actionPoint: Point | undefined;
   private _actionSelector: string | undefined;
   private _highlight: Highlight;
+  private _coordPick = false;
+  private _dragStartPoint: Point = {x: 0, y: 0};
+  private _avoidNextClick = false;
 
   constructor(injectedScript: InjectedScript) {
     this._injectedScript = injectedScript;
@@ -172,6 +176,7 @@ class Recorder {
       });
       return;
     }
+    if (this._avoidNextClick) return;
 
     this._performAction({
       name: 'click',
@@ -200,7 +205,19 @@ class Recorder {
     return false;
   }
 
+  private _checkDragged(p0: Point, p1: Point) {
+    const deltaX = Math.abs(p0.x - p1.x);
+    const deltaY = Math.abs(p0.y - p1.y);
+    return deltaX >= 3 || deltaY >= 3;
+  }
+
   private _onMouseDown(event: MouseEvent) {
+    // 记录拖拽起始点
+    if (this._coordPick) {
+      this._dragStartPoint.x = event.clientX;
+      this._dragStartPoint.y = event.clientY;
+    }
+    
     if (this._shouldIgnoreMouseEvent(event))
       return;
     if (!this._performingAction)
@@ -209,6 +226,46 @@ class Recorder {
   }
 
   private _onMouseUp(event: MouseEvent) {
+    // 自动生成拖拽代码并提示
+    if (this._coordPick) {
+      // alert(`await drag(page, { x: ${this._dragStartPoint.x}, y: ${this._dragStartPoint.y} }, { x: ${event.clientX}, y: ${event.clientY} })`);
+      const p0 = this._dragStartPoint;
+      const p1 = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+      if (this._checkDragged(p0, p1)) {
+        if (this._mode === 'recording') {
+          globalThis.__pw_recorderRecordAction({
+            name: 'canvasDrag',
+            position: [ p0, p1 ],
+            signals: [],
+          });
+        } else {
+          const line = `await drag(page, { x: ${this._dragStartPoint.x}, y: ${this._dragStartPoint.y} }, { x: ${event.clientX}, y: ${event.clientY} })`;
+          alert(line);
+          copy(line);
+        }
+      } else {
+        // alert(`await click(page, { x: ${event.clientX}, y: ${event.clientY} });`)
+        if (this._mode === 'recording') {
+          globalThis.__pw_recorderRecordAction({
+            name: 'canvasClick',
+            position: {
+              x: event.clientX,
+              y: event.clientY,
+            },
+            signals: [],
+          });
+        } else {
+          const line = `await click(page, { x: ${event.clientX}, y: ${event.clientY} });`;
+          alert(line);
+          copy(line);
+        }
+      }
+      this._avoidNextClick = true;
+      setTimeout(() => this._avoidNextClick = false, 200);
+    }
     if (this._shouldIgnoreMouseEvent(event))
       return;
     if (!this._performingAction)
@@ -335,6 +392,12 @@ class Recorder {
   }
 
   private _onKeyDown(event: KeyboardEvent) {
+    // F2 进入坐标拾取模式，再按一次退出
+    if (event.key === 'F2') {
+      this._coordPick = !this._coordPick;
+      consumeEvent(event);
+      return;
+    }
     if (this._mode === 'inspecting') {
       consumeEvent(event);
       return;
